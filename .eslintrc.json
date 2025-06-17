@@ -1,0 +1,88 @@
+{
+  "root": true,
+  "env": { "browser": true, "es2020": true, "node": true },
+  "ignorePatterns": ["**/*"],
+  "extends": [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended",
+    "plugin:react-hooks/recommended",
+    "airbnb/base",
+    "plugin:import/errors",
+    "plugin:import/warnings",
+    "plugin:import/typescript"
+  ],
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "ecmaVersion": 2021
+  },
+  "plugins": ["@nx"],
+  "overrides": [
+    {
+      "files": ["*.ts", "*.tsx", "*.js", "*.jsx"],
+      "rules": {
+        "@nx/enforce-module-boundaries": [
+          "error",
+          {
+            "enforceBuildableLibDependency": true,
+            "allow": [],
+            "depConstraints": [
+              {
+                "sourceTag": "*",
+                "onlyDependOnLibsWithTags": ["*"]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["*.ts", "*.tsx"],
+      "extends": ["plugin:@nx/typescript"],
+      "rules": {
+        "semi": ["error", "always"],
+        "object-curly-spacing": ["error", "always"],
+        "object-curly-newline": "off",
+        "@typescript-eslint/explicit-function-return-type": "off",
+        "@typescript-eslint/no-explicit-any": 1,
+        "@typescript-eslint/no-inferrable-types": [
+          "warn",
+          {
+            "ignoreParameters": true
+          }
+        ],
+        "no-underscore-dangle": "off",
+        "no-shadow": "off",
+        "no-new": 0,
+        "@typescript-eslint/no-shadow": "error",
+        "@typescript-eslint/no-unused-vars": "warn",
+        "quotes": [
+          2,
+          "double",
+          {
+            "avoidEscape": true
+          }
+        ],
+        "indent": ["error", 2],
+        "class-methods-use-this": "off",
+        "import/extensions": [
+          "error",
+          "ignorePackages",
+          {
+            "js": "never",
+            "jsx": "never",
+            "ts": "never",
+            "tsx": "never"
+          }
+        ],
+        "linebreak-style": 0,
+        "import/no-extraneous-dependencies": "off",
+        "import/no-unresolved": "off"
+      }
+    },
+    {
+      "files": ["*.js", "*.jsx"],
+      "extends": ["plugin:@nx/javascript"],
+      "rules": {}
+    }
+  ]
+}
