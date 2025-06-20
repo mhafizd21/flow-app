@@ -389,7 +389,7 @@ const FlowCanvas = () => {
                 showToast("Workspace already saved")
               }
             }}
-            className="w-full flex items-center gap-2 bg-green-600 hover:bg-green-700 justify-center  px-3 rounded  text-white cursor-pointer"
+            className="w-full flex items-center py-2 gap-2 bg-green-600 hover:bg-green-700 justify-center  px-3 rounded  text-white cursor-pointer"
           >
             <FileIcon className="w-4 h-4" />
             Save
