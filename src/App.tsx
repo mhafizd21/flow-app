@@ -13,40 +13,21 @@ import {
   type Edge,
   type Connection,
   reconnectEdge,
-  Position,
-  Handle,
   type NodeChange,
   applyNodeChanges,
   MarkerType,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import {
-  Cross2Icon,
   PlusIcon,
   FileIcon,
   DownloadIcon,
   UploadIcon,
 } from "@radix-ui/react-icons";
-
-type FlowData = {
-  nodes: Node<CustomNodeData>[];
-  edges: Edge[];
-  viewport: {
-    x: number;
-    y: number;
-    zoom: number;
-  };
-};
-
-type CustomNodeData = {
-  label: string;
-  description: string;
-  image: string;
-  code: string;
-};
-
-const initialNodes: Node<CustomNodeData>[] = [];
-const initialEdges: Edge[] = [];
+import type { CustomNodeData, FlowData } from "./interfaces";
+import Toast from "./Components/Toast";
+import CustomNodes from "./Components/CustomNodes";
+import PopupDetail from "./Components/PopupDetail/PopupDetail";
 
 const NODE_LIST: CustomNodeData[] = [
   {
@@ -86,158 +67,123 @@ const NODE_LIST: CustomNodeData[] = [
   },
 ];
 
-// TODO: Move this component to new file
-
-const CustomNode = ({ data }: { data: CustomNodeData }) => {
-  return (
-    <div className="group p-3 rounded-lg border border-gray-200 bg-white shadow-sm w-48 relative cursor-pointer">
-      <Handle
-        type="target"
-        position={Position.Top}
-        className="opacity-0 group-hover:opacity-100 transition-all duration-200"
-        id="input-top"
-      />
-
-      <Handle
-        type="target"
-        position={Position.Left}
-        className="opacity-0 group-hover:opacity-100 transition-all duration-200"
-        id="input-left"
-      />
-
-      <div className="flex flex-col items-center text-center">
-        <img
-          src={data.image}
-          alt={data.label}
-          className="w-16 h-16 object-cover rounded-md mb-2"
-        />
-        <h3 className="font-semibold text-gray-800 text-sm">{data.label}</h3>
-      </div>
-
-      <Handle
-        type="source"
-        position={Position.Right}
-        className="opacity-0 group-hover:opacity-100 transition-all duration-200"
-        id="output-right"
-      />
-
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        className="opacity-0 group-hover:opacity-100 transition-all duration-200"
-        id="output-bottom"
-      />
-    </div>
-  );
-};
+const initialId = 1;
 
 const FlowCanvas = () => {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const nodeIdCounter = useRef(1);
-  const edgeIdCounter = useRef(1);
+
+  const nodeIdCounter = useRef(initialId);
+  const edgeIdCounter = useRef(initialId);
+
   const store = useStoreApi();
+
   const { setViewport } = useReactFlow();
 
-  const [nodes, setNodes] = useNodesState<Node<CustomNodeData>>(initialNodes);
-  const [edges, setEdges, onEdgeChanges] = useEdgesState(initialEdges);
+  const [nodes, setNodes] = useNodesState<Node<CustomNodeData>>(
+    [] as Node<CustomNodeData>[]
+  );
+  const [edges, setEdges, onEdgeChanges] = useEdgesState([] as Edge[]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [showRightSidebar, setShowRightSidebar] = useState(false);
-  const [toast, setToast] = useState({ open: false, message: "" });
+  const [toastMsg, setToastMsg] = useState("");
 
-  const getId = useCallback(() => `n${nodeIdCounter.current++}`, []);
-  const getEdgeId = useCallback(() => `e${edgeIdCounter.current++}`, []);
+  const getNewId = () => `n${nodeIdCounter.current++}`;
+  const getEdgeId = () => `e${edgeIdCounter.current++}`;
 
-  const onNodesChange = useCallback(
-    (changes: NodeChange[]) => {
-      setNodes((node) => {
-        const updatedNodes = applyNodeChanges(
-          changes,
-          node
-        ) as Node<CustomNodeData>[];
+  const onNodesChange = (changesNode: NodeChange[]) => {
+    setNodes((node) => {
+      const updatedNodes = applyNodeChanges(
+        changesNode,
+        node
+      ) as Node<CustomNodeData>[];
 
-        const deletedNodeIds = changes
-          .filter((c) => c.type === "remove")
-          .map((c) => c.id);
+      const deletedNodeIds = changesNode
+        .filter((node) => node.type === "remove")
+        .map((node) => node.id);
 
-        if (deletedNodeIds.length > 0) {
-          setEdges((eds) =>
-            eds.filter(
-              (e) =>
-                !deletedNodeIds.includes(e.source) &&
-                !deletedNodeIds.includes(e.target)
-            )
-          );
+      if (deletedNodeIds.length > 0) {
+        setEdges((edge) => {
+          return edge.filter((e) => {
+            return (
+              !deletedNodeIds.includes(e.source) &&
+              !deletedNodeIds.includes(e.target)
+            )})
+        });
 
-          const maxNodeId = updatedNodes.reduce((max, node) => {
-            const num = Number(node.id.replace("n", ""));
-            return isNaN(num) ? max : Math.max(max, num);
-          }, 0);
-          nodeIdCounter.current = maxNodeId + 1;
-        }
+        const maxNodeId = updatedNodes.reduce((max, node) => {
+          const num = Number(node.id?.replace("n", ""));
+          return isNaN(num) ? max : Math.max(max, num);
+        }, 0);
+        nodeIdCounter.current = maxNodeId + 1;
+      }
 
-        return updatedNodes;
-      });
-    },
-    [setNodes, setEdges]
-  );
+      return updatedNodes;
+    });
+  };
 
-  const updateCounters = useCallback((nodes: Node[], edges: Edge[]) => {
+  const updateCounters = (nodes: Node[], edges: Edge[]) => {
+    const defaultId = 0;
     const maxNodeId = Math.max(
-      0,
-      ...nodes.map((n) => {
-        const idNum = Number(n.id.replace("n", ""));
-        return isNaN(idNum) ? 0 : idNum;
+      defaultId,
+      ...nodes.map((node) => {
+        const nodId = Number(node.id.replace("n", ""));
+        return isNaN(nodId) ? 0 : nodId;
       })
     );
     nodeIdCounter.current = maxNodeId + 1;
 
     const maxEdgeId = Math.max(
-      0,
-      ...edges.map((e) => {
-        const idNum = Number(e.id?.replace("e", "") || "0");
-        return isNaN(idNum) ? 0 : idNum;
+      defaultId,
+      ...edges.map((edge) => {
+        const edgeId = Number(edge.id?.replace("e", "") || "0");
+        return isNaN(edgeId) ? 0 : edgeId;
       })
     );
     edgeIdCounter.current = maxEdgeId + 1;
-  }, []);
+  };
 
-  const showToast = useCallback((message: string) => {
-    setToast({ open: true, message });
-    setTimeout(() => setToast({ open: false, message: "" }), 3000);
-  }, []);
+  const showToast = (message: string) => {
+    setToastMsg(message);
+    setTimeout(() => setToastMsg(""), 3000);
+  };
 
-  const handleNewCanvas = useCallback(() => {
+  const handleNewCanvas = () => {
     setNodes([]);
     setEdges([]);
     setViewport({ x: 0, y: 0, zoom: 1 });
-    nodeIdCounter.current = 1;
-    edgeIdCounter.current = 1;
+
+    nodeIdCounter.current = initialId;
+    edgeIdCounter.current = initialId;
+
     showToast("New workspace created");
-  }, [setNodes, setEdges, setViewport, showToast]);
+  };
 
   useEffect(() => {
-    const savedFlow = localStorage.getItem("react-flow-data");
+    const savedFlow = localStorage.getItem("flow-management-save-data");
     if (savedFlow) {
       try {
         const flowData: FlowData = JSON.parse(savedFlow);
+
         setNodes(flowData.nodes);
         setEdges(flowData.edges);
         setViewport(flowData.viewport);
+
         updateCounters(flowData.nodes, flowData.edges);
+
         showToast("Workspace loaded");
       } catch (err) {
         console.error("Failed to load workspace:", err);
         showToast("Failed to load workspace");
       }
     }
-  }, [setNodes, setEdges, setViewport, updateCounters, showToast]);
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      const { nodes, edges, transform } = store.getState();
+      const { transform } = store.getState();
       localStorage.setItem(
-        "react-flow-data",
+        "flow-management-save-data",
         JSON.stringify({
           nodes,
           edges,
@@ -252,34 +198,29 @@ const FlowCanvas = () => {
     return () => clearTimeout(timer);
   }, [nodes, edges, store]);
 
-  const onConnect = useCallback(
-    (connection: Connection) =>
-      setEdges((eds) =>
-        addEdge(
-          {
-            ...connection,
-            id: getEdgeId(),
-            animated: true,
-            markerEnd: {
-              type: MarkerType.ArrowClosed,
-            },
+  const onConnect = (connection: Connection) => {
+    setEdges((item) =>
+      addEdge(
+        {
+          ...connection,
+          id: getEdgeId(),
+          animated: true,
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
           },
-          eds
-        )
+        },
+        item
       ),
-    [setEdges, getEdgeId]
-  );
+    );
+  }
 
-  const onReconnect = useCallback(
-    (oldEdge: Edge, newConn: Connection) =>
-      setEdges((eds) => reconnectEdge(oldEdge, newConn, eds)),
-    []
-  );
+  const onReconnect = (oldEdge: Edge, newConn: Connection) =>
+    setEdges((eds) => reconnectEdge(oldEdge, newConn, eds));
 
   const onDrop = useCallback(
     (event: React.DragEvent) => {
       event.preventDefault();
-      const code = event.dataTransfer.getData("application/reactflow");
+      const code = event.dataTransfer.getData("app-reactflow");
       if (!code) return;
 
       const bounds = wrapperRef.current?.getBoundingClientRect();
@@ -291,11 +232,11 @@ const FlowCanvas = () => {
         y: (event.clientY - bounds.top - transform[1]) / transform[2],
       };
 
-      const selectedTemplate = NODE_LIST.find((n) => n.code === code);
+      const selectedTemplate = NODE_LIST.find((node) => node.code === code);
       if (!selectedTemplate) return;
 
       const newNode: Node<CustomNodeData> = {
-        id: getId(),
+        id: getNewId(),
         type: "custom",
         position,
         data: {
@@ -305,113 +246,87 @@ const FlowCanvas = () => {
 
       setNodes((node) => [...node, newNode]);
     },
-    [setNodes, store, getId]
+    [store]
   );
 
-  const onDragOver = useCallback((event: React.DragEvent) => {
+  const onDragOver = (event: React.DragEvent) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
-  }, []);
+  };
 
-  const onNodeClick = useCallback((_: unknown, node: Node) => {
+  const onNodeClick = (_: any, node: Node) => {
     setSelectedNodeId(node.id);
     setShowRightSidebar(true);
-  }, []);
+  };
 
-  const onPaneClick = useCallback(() => {
+  const onPaneClick = () => {
     setSelectedNodeId(null);
     setShowRightSidebar(false);
-  }, []);
+  };
 
   const handleExport = useCallback(() => {
     const { nodes, edges, transform } = store.getState();
-    const blob = new Blob(
-      [
-        JSON.stringify(
-          {
-            nodes,
-            edges,
-            viewport: {
-              x: transform[0],
-              y: transform[1],
-              zoom: transform[2],
-            },
+    const blob = new Blob([
+      JSON.stringify(
+        {
+          nodes,
+          edges,
+          viewport: {
+            x: transform[0],
+            y: transform[1],
+            zoom: transform[2],
           },
-          null,
-          2
-        ),
-      ],
-      { type: "application/json" }
-    );
+        }, null, 2
+      )],
+    { type: "application/json" });
 
     const url = URL.createObjectURL(blob);
+
     const a = document.createElement("a");
     a.href = url;
-    a.download = `flow-${new Date().toISOString()}.json`;
+    a.download = "flow-management.json";
     a.click();
+  
     URL.revokeObjectURL(url);
     showToast("Workspace exported");
-  }, [store, showToast]);
 
-  const handleImport = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
+  }, [store]);
 
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        try {
-          const flowData: FlowData = JSON.parse(event.target?.result as string);
-          setNodes(flowData.nodes);
-          setEdges(flowData.edges);
-          setViewport(flowData.viewport);
-          updateCounters(flowData.nodes, flowData.edges);
-          setShowRightSidebar(false);
-          showToast("Workspace imported");
-        } catch (err) {
-          console.error("Import error:", err);
-          showToast("Failed to import");
-        }
-      };
-      reader.readAsText(file);
-    },
-    [setNodes, setEdges, setViewport, updateCounters, showToast]
-  );
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = (event) => {
+      try {
+        const flowData: FlowData = JSON.parse(String(event.target?.result));
+        setNodes(flowData.nodes);
+        setEdges(flowData.edges);
+        setViewport(flowData.viewport);
+        updateCounters(flowData.nodes, flowData.edges);
+        setShowRightSidebar(false);
+        showToast("Workspace imported");
+      } catch (err) {
+        console.error("Import error:", err);
+        showToast("Gagal Import");
+      }
+    };
+    reader.readAsText(file);
+  };
 
   const selectedNode = useMemo(
-    () => nodes.find((n) => n.id === selectedNodeId),
+    () => nodes.find((node) => node.id === selectedNodeId) ?? {} as Node<CustomNodeData>,
     [selectedNodeId, nodes]
   );
 
-  const nodeDetails = useMemo(() => {
-    if (!selectedNode) return "Pilih salah satu node";
-
-    return (
-      <div className="space-y-3 text-sm text-gray-700">
-        <img
-          src={selectedNode.data.image}
-          alt={selectedNode.data.label}
-          className="w-full h-full object-cover rounded-md"
-        />
-        <div>
-          <h3 className="font-semibold text-gray-800 text-base">
-            {selectedNode.data.label}
-          </h3>
-          <p className="text-gray-600">{selectedNode.data.description}</p>
-        </div>
-        <div className="text-xs text-gray-400">
-          Kode: {selectedNode.data.code}
-        </div>
-        <div className="text-xs text-gray-400">ID Node: {selectedNode.id}</div>
-      </div>
-    );
-  }, [selectedNode]);
-
   const connectedNodes = useMemo(() => {
-    if (!selectedNodeId) return { from: [], to: [] };
+    if (!selectedNodeId) {
+      return { from: [], to: [] }
+    };
 
     const getNodeLabelById = (id: string) =>
-      nodes.find((n) => n.id === id)?.data?.label || id;
+      nodes.find((node) => node.id === id)?.data?.label || id;
 
     return {
       from: edges
@@ -424,17 +339,21 @@ const FlowCanvas = () => {
   }, [selectedNodeId, edges, nodes]);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
+    <div className="flex bg-gray-50 h-screen overflow-hidden">
       {/* Left Sidebar */}
-      <aside className="w-56 p-4 bg-white border-r border-gray-200 flex flex-col h-full">
+      <aside className="w-56 flex flex-col bg-white p-4 border-r border-gray-200 h-full">
         <div>
-          <h2 className="text-lg font-semibold mb-4 text-gray-800">Flow Management</h2>
+          <h1 className="text-lg font-semibold mb-4 text-gray-800">
+            Flow Management
+          </h1>
 
           <button
             onClick={handleNewCanvas}
-            className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded mb-4 bg-amber-700 hover:bg-amber-800 text-white cursor-pointer"
+            className="w-full bg-amber-700  text-white flex items-center justify-center gap-2 py-2 px-3 rounded mb-4 hover:bg-amber-800 cursor-pointer"
           >
-            <PlusIcon className="w-4 h-4" />
+            <PlusIcon 
+              className="size-4"
+            />
             New Workspace
           </button>
         </div>
@@ -446,9 +365,9 @@ const FlowCanvas = () => {
                 key={node.code}
                 draggable
                 onDragStart={(e) =>
-                  e.dataTransfer.setData("application/reactflow", node.code)
+                  e.dataTransfer.setData("app-reactflow", node.code)
                 }
-                className="cursor-move p-3 rounded border border-gray-200 hover:bg-gray-50 flex flex-col items-center"
+                className=" hover:bg-gray-50 cursor-move p-3 rounded border border-gray-200 flex flex-col items-center"
               >
                 <img
                   src={node.image}
@@ -465,24 +384,26 @@ const FlowCanvas = () => {
 
         <div className="space-y-2">
           <button
-            onClick={() =>
-              localStorage.getItem("react-flow-data") && showToast("Workspace saved")
-            }
-            className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded bg-green-600 hover:bg-green-700 text-white cursor-pointer"
+            onClick={() => {
+              if (localStorage.getItem("react-flow-data")) {
+                showToast("Workspace already saved")
+              }
+            }}
+            className="w-full flex items-center gap-2 bg-green-600 hover:bg-green-700 justify-center  px-3 rounded  text-white cursor-pointer"
           >
             <FileIcon className="w-4 h-4" />
             Save
           </button>
           <button
             onClick={handleExport}
-            className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded border border-green-600 text-green-600 hover:bg-green-50 cursor-pointer"
+            className="w-full rounded border border-green-600 flex items-center gap-2 justify-center  py-2 px-3 text-green-600 hover:bg-green-50 cursor-pointer"
           >
             <DownloadIcon className="w-4 h-4" />
             Export
           </button>
           <button
             onClick={() => inputRef.current?.click()}
-            className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded border border-green-600 text-green-600 hover:bg-green-50 cursor-pointer"
+            className="w-full rounded border border-green-600 flex items-center gap-2 justify-center  py-2 px-3 text-green-600 hover:bg-green-50 cursor-pointer"
           >
             <UploadIcon className="w-4 h-4" />
             Import
@@ -510,7 +431,7 @@ const FlowCanvas = () => {
           onDragOver={onDragOver}
           onNodeClick={onNodeClick}
           onPaneClick={onPaneClick}
-          nodeTypes={{ custom: CustomNode }}
+          nodeTypes={{ custom: CustomNodes }}
           fitView
         >
           <Background />
@@ -518,76 +439,20 @@ const FlowCanvas = () => {
         </ReactFlow>
       </div>
 
-      {/* Right Sidebar */}
-      <aside
-        className={`
-        fixed right-0 top-0 h-full w-64 p-4 bg-white border-l border-gray-200 overflow-y-auto
-        transition-all duration-300 ease-in-out transform
-        ${showRightSidebar ? "translate-x-0" : "translate-x-full"}
-        shadow-lg z-10
-      `}
-      >
-        <button
-          onClick={() => setShowRightSidebar(false)}
-          className="absolute top-2 right-2 p-1 rounded-full hover:bg-gray-100 cursor-pointer"
-        >
-          <Cross2Icon className="w-4 h-4" />
-        </button>
+      {/* Right popup component */}
+      <PopupDetail
+        connectedNodes={connectedNodes}
+        open={showRightSidebar}
+        onClose={() => setShowRightSidebar(false)}
+        selectedNode={selectedNode}
+      />
 
-        <h2 className="text-lg font-semibold mb-4 text-gray-800">Details</h2>
-
-        <div className="mb-4">{nodeDetails}</div>
-
-        <div>
-          <h3 className="font-medium text-gray-900 mb-2">Relasi:</h3>
-          <div className="space-y-3">
-            <div>
-              <h4 className="text-sm font-medium text-gray-900">
-                Terhubung ke:
-              </h4>
-              {connectedNodes.from.length > 0 ? (
-                <ul className="ml-4 list-disc text-sm text-gray-600">
-                  {connectedNodes.from.map((target, i) => (
-                    <li key={i}>{target}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="ml-4 text-sm text-gray-400 italic">Tidak ada</p>
-              )}
-            </div>
-            <div>
-              <h4 className="text-sm font-medium text-gray-900">
-                Terhubung dari:
-              </h4>
-              {connectedNodes.to.length > 0 ? (
-                <ul className="ml-4 list-disc text-sm text-gray-600">
-                  {connectedNodes.to.map((source, i) => (
-                    <li key={i}>{source}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="ml-4 text-sm text-gray-400 italic">Tidak ada</p>
-              )}
-            </div>
-          </div>
-        </div>
-      </aside>
-
-      {/* Toast Notification */}
-      {toast.open && (
-        <div className="fixed bottom-4 right-4 z-50 bg-green-200 text-green-900 px-4 py-3 rounded shadow-lg flex items-center animate-fade-in">
-          <span>{toast.message}</span>
-          <button
-            onClick={() => setToast({ open: false, message: "" })}
-            className="ml-4 p-1 rounded-full hover:bg-green-300"
-          >
-            <Cross2Icon className="w-3 h-3" />
-          </button>
-        </div>
+      {toastMsg && (
+        <Toast message={toastMsg} onClose={() => setToastMsg("")} />
       )}
     </div>
   );
-}
+};
 
 export default function App() {
   return (
