@@ -28,55 +28,63 @@ import type { CustomNodeData, FlowData } from "./interfaces";
 import Toast from "./Components/Toast";
 import CustomNodes from "./Components/CustomNodes";
 import PopupDetail from "./Components/PopupDetail/PopupDetail";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
+import { getNodes } from "./server";
 
-const NODE_LIST: CustomNodeData[] = [
-  {
-    code: "eksplorasi",
-    label: "Eksplorasi & Pengeboran",
-    description: "Tahap pencarian dan pengeboran sumber minyak mentah.",
-    image:
-      "https://ik.imagekit.io/corazonImgKit/explorasi.png?updatedAt=1750322953264",
-  },
-  {
-    code: "kilang",
-    label: "Kilang Minyak",
-    description: "Fasilitas pemrosesan minyak mentah menjadi produk jadi.",
-    image:
-      "https://ik.imagekit.io/corazonImgKit/kilang.png?updatedAt=1750322954013",
-  },
-  {
-    code: "tanker",
-    label: "Tanker Minyak",
-    description: "Kapal tanker untuk distribusi minyak dalam jumlah besar.",
-    image:
-      "https://ik.imagekit.io/corazonImgKit/tanker.png?updatedAt=1750322954602",
-  },
-  {
-    code: "truk",
-    label: "Truk Tangki",
-    description: "Truk untuk pengangkutan BBM dari depot ke SPBU.",
-    image:
-      "https://ik.imagekit.io/corazonImgKit/truk.png?updatedAt=1750322954231",
-  },
-  {
-    code: "spbu",
-    label: "SPBU",
-    description: "Stasiun pengisian bahan bakar untuk konsumen akhir.",
-    image:
-      "https://ik.imagekit.io/corazonImgKit/spbu.png?updatedAt=1750322954510",
-  },
-  {
-    code: "manifold",
-    label: "Manifold",
-    description: "Manifold.",
-    image:
-      "https://ik.imagekit.io/corazonImgKit/manifold.jpeg?updatedAt=1753068026859",
-  },
-];
+// const NODE_LIST: CustomNodeData[] = [
+//   {
+//     code: "eksplorasi",
+//     label: "Eksplorasi & Pengeboran",
+//     description: "Tahap pencarian dan pengeboran sumber minyak mentah.",
+//     image:
+//       "https://ik.imagekit.io/corazonImgKit/explorasi.png?updatedAt=1750322953264",
+//   },
+//   {
+//     code: "kilang",
+//     label: "Kilang Minyak",
+//     description: "Fasilitas pemrosesan minyak mentah menjadi produk jadi.",
+//     image:
+//       "https://ik.imagekit.io/corazonImgKit/kilang.png?updatedAt=1750322954013",
+//   },
+//   {
+//     code: "tanker",
+//     label: "Tanker Minyak",
+//     description: "Kapal tanker untuk distribusi minyak dalam jumlah besar.",
+//     image:
+//       "https://ik.imagekit.io/corazonImgKit/tanker.png?updatedAt=1750322954602",
+//   },
+//   {
+//     code: "truk",
+//     label: "Truk Tangki",
+//     description: "Truk untuk pengangkutan BBM dari depot ke SPBU.",
+//     image:
+//       "https://ik.imagekit.io/corazonImgKit/truk.png?updatedAt=1750322954231",
+//   },
+//   {
+//     code: "spbu",
+//     label: "SPBU",
+//     description: "Stasiun pengisian bahan bakar untuk konsumen akhir.",
+//     image:
+//       "https://ik.imagekit.io/corazonImgKit/spbu.png?updatedAt=1750322954510",
+//   },
+//   {
+//     code: "manifold",
+//     label: "Manifold",
+//     description: "Manifold.",
+//     image:
+//       "https://ik.imagekit.io/corazonImgKit/manifold.jpeg?updatedAt=1753068026859",
+//   },
+// ];
 
 const initialId = 1;
 
 const FlowCanvas = () => {
+  const { data, isLoading } = useQuery({
+    queryKey: ["nodes"],
+    queryFn: getNodes,
+  });
+  console.log(data, isLoading);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -239,7 +247,7 @@ const FlowCanvas = () => {
         y: (event.clientY - bounds.top - transform[1]) / transform[2],
       };
 
-      const selectedTemplate = NODE_LIST.find((node) => node.code === code);
+      const selectedTemplate = data?.find((node) => node.code === code);
       if (!selectedTemplate) return;
 
       const newNode: Node<CustomNodeData> = {
@@ -253,7 +261,7 @@ const FlowCanvas = () => {
 
       setNodes((node) => [...node, newNode]);
     },
-    [store]
+    [store, data]
   );
 
   const onDragOver = (event: React.DragEvent) => {
@@ -366,27 +374,34 @@ const FlowCanvas = () => {
         </div>
 
         <div className="flex-grow overflow-y-auto min-h-0 mb-6">
-          <div className="space-y-4 pr-1">
-            {NODE_LIST.map((node) => (
-              <div
-                key={node.code}
-                draggable
-                onDragStart={(e) =>
-                  e.dataTransfer.setData("app-reactflow", node.code)
-                }
-                className=" hover:bg-gray-50 cursor-move p-3 rounded border border-gray-200 flex flex-col items-center"
-              >
-                <img
-                  src={node.image}
-                  alt={node.label}
-                  className="w-12 h-12 rounded-md object-cover mb-2"
-                />
-                <span className="text-sm font-medium text-center">
-                  {node.label}
-                </span>
-              </div>
-            ))}
-          </div>
+          {isLoading ? (
+            <div className="flex flex-col items-center gap-4 justify-center min-h-[200px]">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-green-500"></div>
+              <span className="ml-3 text-gray-600 font-medium">Memuat data node...</span>
+            </div>
+          ) : (
+            <div className="space-y-4 pr-1">
+              {data?.map((node) => (
+                <div
+                  key={node.code}
+                  draggable
+                  onDragStart={(e) =>
+                    e.dataTransfer.setData("app-reactflow", node.code)
+                  }
+                  className=" hover:bg-gray-50 cursor-move p-3 rounded border border-gray-200 flex flex-col items-center"
+                >
+                  <img
+                    src={node.image}
+                    alt={node.label}
+                    className="w-12 h-12 rounded-md object-cover mb-2"
+                  />
+                  <span className="text-sm font-medium text-center">
+                    {node.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -461,10 +476,14 @@ const FlowCanvas = () => {
   );
 };
 
+const queryClient = new QueryClient();
+
 export default function App() {
   return (
-    <ReactFlowProvider>
-      <FlowCanvas />
-    </ReactFlowProvider>
+    <QueryClientProvider client={queryClient}>
+      <ReactFlowProvider>
+        <FlowCanvas />
+      </ReactFlowProvider>
+    </QueryClientProvider>
   );
 }
