@@ -65,6 +65,13 @@ const NODE_LIST: CustomNodeData[] = [
     image:
       "https://ik.imagekit.io/corazonImgKit/spbu.png?updatedAt=1750322954510",
   },
+  {
+    code: "manifold",
+    label: "Manifold",
+    description: "Manifold.",
+    image:
+      "https://ik.imagekit.io/corazonImgKit/manifold.jpeg?updatedAt=1753068026859",
+  },
 ];
 
 const initialId = 1;
